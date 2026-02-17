@@ -3036,7 +3036,8 @@ document.querySelectorAll('.sort-btn').forEach(btn=>btn.addEventListener('click'
       const sa=parseInt(a.dataset.score||'0'),sb=parseInt(b.dataset.score||'0');
       return sb-sa;
     }else if(mode==='seniority'){
-      const sa=parseInt(a.dataset.seniority||'0'),sb=parseInt(b.dataset.seniority||'0');
+      const senOrd={6:6,3:5,5:4,4:3,2:2,1:1,0:0};
+      const sa=senOrd[parseInt(a.dataset.seniority||'0')]??0,sb=senOrd[parseInt(b.dataset.seniority||'0')]??0;
       if(sa!==sb)return sb-sa;
       const sca=parseInt(a.dataset.score||'0'),scb=parseInt(b.dataset.score||'0');
       return scb-sca;
@@ -3176,7 +3177,7 @@ document.querySelectorAll('#net-card .sort-btn').forEach(btn=>{
     const rows=[...tbody.querySelectorAll('tr')];
     rows.sort((a,b)=>{
       if(s==='conflict')return(parseInt(b.dataset.conflict)||0)-(parseInt(a.dataset.conflict)||0)||(parseInt(b.dataset.score)||0)-(parseInt(a.dataset.score)||0);
-      if(s==='seniority')return(parseInt(b.dataset.seniority)||0)-(parseInt(a.dataset.seniority)||0);
+      if(s==='seniority'){const senOrd={6:6,3:5,5:4,4:3,2:2,1:1,0:0};return(senOrd[parseInt(b.dataset.seniority)||0]??0)-(senOrd[parseInt(a.dataset.seniority)||0]??0);}
       return(a.dataset.name||'').localeCompare(b.dataset.name||'');
     });
     rows.forEach(r=>tbody.appendChild(r));
