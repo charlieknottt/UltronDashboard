@@ -267,9 +267,30 @@ td.rank-num{color:var(--t3);font-size:11px;text-align:center;min-width:28px;font
   .filter-bar{gap:4px}
   .cf-btn{flex:1;justify-content:center;padding:10px 6px}
 }
+#login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#1e2a38;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+#login-overlay.hidden{display:none}
+.login-box{background:#263545;border-radius:12px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.login-box h1{color:#fff;font-size:22px;margin-bottom:4px;font-family:Georgia,'Times New Roman',serif}
+.login-box p{color:rgba(255,255,255,.4);font-size:12px;margin-bottom:28px;font-style:italic;letter-spacing:.3px}
+.login-box input{width:100%;padding:12px 16px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;font-size:14px;outline:none;transition:border-color .2s}
+.login-box input:focus{border-color:#5ba3d9}
+.login-box input::placeholder{color:rgba(255,255,255,.3)}
+.login-box button{width:100%;padding:12px;margin-top:16px;border:none;border-radius:8px;background:#5ba3d9;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s}
+.login-box button:hover{background:#4a8fc2}
+.login-err{color:#e74c3c;font-size:12px;margin-top:12px;min-height:18px}
 </style>
 </head>
 <body>
+
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>UltronAI</h1>
+    <p>Patent Portfolio Dashboard</p>
+    <input type="password" id="login-pw" placeholder="Enter password" autocomplete="off">
+    <button id="login-btn">Sign In</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
 
 <nav class="side">
   <div class="side-h"><h1>UltronAI</h1><p>Patent Portfolio Dashboard</p></div>
@@ -3207,5 +3228,29 @@ function toggleProd(el){
 function goPatCat(el){const slug=el.dataset.patCat;sp(P.indexOf('patents'));setTimeout(()=>{const t=document.getElementById('pat-'+slug);if(t){const c=document.querySelector('.content');c.scrollTop=t.offsetTop-c.offsetTop-16}},50)}
 function goDiv(el){const co=el.dataset.co;sp(P.indexOf(co));setTimeout(()=>{const t=document.getElementById('pa-'+co);if(t){const c=document.querySelector('.content');c.scrollTop=t.offsetTop-c.offsetTop-16}},50)}
 sp(0);
+/* Login gate */
+(function(){
+  const HASH='73f5f21bef6133d85b710576224f1a2453c9eb03e4c0a0276b920c2c43ef69af';
+  const ov=document.getElementById('login-overlay');
+  if(sessionStorage.getItem('ultron_auth')==='1'){ov.classList.add('hidden');return}
+  document.querySelector('.side').style.display='none';
+  document.querySelector('.main').style.display='none';
+  async function check(){
+    const pw=document.getElementById('login-pw').value;
+    const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));
+    const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(hash===HASH){
+      sessionStorage.setItem('ultron_auth','1');
+      ov.classList.add('hidden');
+      document.querySelector('.side').style.display='';
+      document.querySelector('.main').style.display='';
+    }else{
+      document.getElementById('login-err').textContent='Incorrect password';
+      document.getElementById('login-pw').value='';
+    }
+  }
+  document.getElementById('login-btn').addEventListener('click',check);
+  document.getElementById('login-pw').addEventListener('keydown',function(e){if(e.key==='Enter')check()});
+})();
 </script>
 </body></html>
