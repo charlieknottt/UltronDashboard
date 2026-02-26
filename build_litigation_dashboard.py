@@ -626,7 +626,7 @@ NEW_CSS = """
 .lit-mini-tbl td{padding:3px 6px}
 
 /* Litigation summary on company tabs */
-.lit-summary-card{background:var(--c);border:1px solid var(--b);border-left:3px solid var(--cr);border-radius:4px;box-shadow:var(--sh);margin-bottom:16px;padding:16px 18px}
+.lit-summary-card{background:var(--c);border:1px solid var(--b);border-radius:4px;box-shadow:var(--sh);margin-bottom:16px;padding:16px 18px}
 .lit-summary-card h4{font-size:12px;font-weight:600;margin-bottom:10px;font-family:-apple-system,sans-serif;display:flex;align-items:center;gap:8px}
 .lit-sum-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
 .lit-sum-stat{text-align:center}
