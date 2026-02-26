@@ -736,8 +736,7 @@ def build_category_overview():
     h = []
     h.append('<div class="cat-overview">')
     h.append('<h3 class="cat-overview-hdr">Category Overview</h3>')
-    h.append('<p class="cat-overview-sub">Our 10 technology categories with corresponding Patlytics analysis groupings. '
-             'Click any category below to jump to its patents.</p>')
+    h.append('<p class="cat-overview-sub">Click any category to jump to its patents.</p>')
 
     h.append('<table class="cat-overview-tbl"><thead><tr>')
     h.append('<th>Category</th><th style="text-align:center">Patents</th><th>Description</th>')
