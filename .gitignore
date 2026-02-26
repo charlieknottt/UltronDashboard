@@ -3,6 +3,6 @@
 
 # Except the dashboards
 !index.html
-!litigation_dashboard.html
+!base_dashboard.html
 !build_litigation_dashboard.py
 !.gitignore

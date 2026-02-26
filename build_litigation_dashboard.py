@@ -20,8 +20,8 @@ except ImportError:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PATLYTICS_DIR = os.path.join(BASE_DIR, 'Patlytics')
 TECHSON_FILE = os.path.join(BASE_DIR, 'Techson', 'patents_bundledxlsx.xlsx')
-INPUT_HTML = os.path.join(BASE_DIR, 'index.html')
-OUTPUT_HTML = os.path.join(BASE_DIR, 'litigation_dashboard.html')
+INPUT_HTML = os.path.join(BASE_DIR, 'base_dashboard.html')
+OUTPUT_HTML = os.path.join(BASE_DIR, 'index.html')
 
 # ──────────────────────────────────────────────
 # Company name normalization
