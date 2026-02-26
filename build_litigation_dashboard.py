@@ -647,6 +647,43 @@ h2 .co-mono{vertical-align:middle;margin-right:6px;border-radius:5px!important}
 .ext-tbl td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.04)}
 .ext-tbl tr:hover{background:rgba(26,82,118,.02)}
 
+/* Company tab expandable product panels */
+.cpd-row{cursor:pointer;transition:background .1s}
+.cpd-row:hover{background:rgba(26,82,118,.04)}
+.cpd-row td{position:relative}
+.cpd-detail-row td{padding:0!important;border-bottom:1px solid var(--b)}
+.cpd-panel{padding:16px 20px;background:var(--bg);border-top:1px solid var(--b);font-family:-apple-system,sans-serif}
+.cpd-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:768px){.cpd-grid{grid-template-columns:1fr}}
+.cpd-col{min-width:0}
+.cpd-desc{font-size:12px;color:var(--t2);line-height:1.6;margin:0 0 10px}
+.cpd-ext-link{font-size:11px;color:var(--a);text-decoration:none;font-weight:600;display:inline-block;margin-bottom:12px}
+.cpd-ext-link:hover{text-decoration:underline}
+.cpd-section{margin-bottom:14px}
+.cpd-label{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.cpd-tags{display:flex;flex-wrap:wrap;gap:4px}
+.cpd-tag{font-size:10px;padding:2px 8px;background:rgba(26,82,118,.06);border:1px solid rgba(26,82,118,.1);border-radius:2px;color:var(--a);text-decoration:none;white-space:nowrap}
+.cpd-tag:hover{background:rgba(26,82,118,.12)}
+.cpd-techson-note{font-size:11px;color:var(--t2);line-height:1.5;padding:8px 10px;background:rgba(41,128,185,.04);border:1px solid rgba(41,128,185,.1);border-radius:3px}
+.cpd-ev-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.cpd-ev-tbl th{text-align:left;padding:4px 8px;color:var(--t3);font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--b)}
+.cpd-ev-tbl td{padding:4px 8px;border-bottom:1px solid rgba(0,0,0,.03)}
+.cpd-pat-link{color:var(--a);text-decoration:none;font-family:monospace;font-size:10px}
+.cpd-pat-link:hover{text-decoration:underline}
+.cpd-no-data{font-size:11px;color:var(--t3);font-style:italic;margin:0}
+.cpd-contacts-section{margin-top:4px}
+.cpd-ct-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.03);font-size:11px}
+.cpd-ct-item:last-child{border-bottom:none}
+.cpd-ct-name{font-weight:600;color:var(--t)}
+.cpd-ct-name a{color:var(--a);text-decoration:none}
+.cpd-ct-name a:hover{text-decoration:underline}
+.cpd-ct-pos{color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cpd-ct-meta{display:flex;gap:4px;flex-shrink:0}
+.cpd-ct-meta span{font-size:9px;padding:1px 5px;border-radius:2px}
+.cpd-ct-tier{background:rgba(26,82,118,.06);color:var(--a)}
+.cpd-ct-sen{color:var(--t3)}
+.cpd-ct-empty{font-size:11px;color:var(--t3);font-style:italic}
+
 /* Patent page filter bar */
 .pat-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;font-family:-apple-system,sans-serif}
 .pat-filter-sel{background:var(--bg);border:1px solid var(--b);color:var(--t);padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer;font-family:-apple-system,sans-serif}
@@ -1333,19 +1370,51 @@ def enhance_product_cards(html_text, patlytics, techson):
 
 
 # ──────────────────────────────────────────────
-# Enhance company tab product rows
+# Enhance company tab product rows — full inline experience
 # ──────────────────────────────────────────────
+def _parse_product_data(html_text):
+    """Parse product cards from the Products page to extract descriptions and URLs."""
+    prod_data = {}  # (company, product_name) -> {desc, url, patent_areas}
+    # Product cards: <div class="pi" data-prod="NAME" data-company="CO">
+    for m in re.finditer(r'<div class="pi" data-prod="([^"]*)" data-company="([^"]*)">(.*?)</div>\s*(?=<div class="pi"|$)',
+                         html_text, re.DOTALL):
+        prod_name = html_mod.unescape(m.group(1))
+        company = html_mod.unescape(m.group(2))
+        block = m.group(3)
+
+        # Extract URL from prod-link
+        url_m = re.search(r'class="prod-link"[^>]*href="([^"]*)"', block)
+        if not url_m:
+            url_m = re.search(r'href="([^"]*)"[^>]*class="prod-link"', block)
+        url = url_m.group(1) if url_m else ''
+
+        # Extract description from pi-desc
+        desc_m = re.search(r'class="pi-desc">([^<]+)</p>', block)
+        desc = html_mod.unescape(desc_m.group(1)) if desc_m else ''
+
+        # Extract patent area tags
+        areas = re.findall(r'data-pat-cat="([^"]*)"[^>]*>([^<]*)</a>', block)
+
+        prod_data[(company, prod_name)] = {
+            'desc': desc,
+            'url': url,
+            'patent_areas': areas,  # [(slug, label), ...]
+        }
+    return prod_data
+
+
 def enhance_company_product_rows(html_text, patlytics, techson):
-    """Add Patlytics score and Techson badge to product rows in company tabs.
-    Multiple products can be on a single line, so we use a regex callback
-    that processes each product individually."""
+    """Transform company tab product rows into expandable panels with full
+    inline detail — Patlytics evidence, Techson assessment, patent areas,
+    and contacts. The 'never leave the company tab' experience."""
     pl_lookup = build_product_patlytics_lookup(patlytics)
     ts_product_map = build_techson_product_set(techson)
+    prod_data = _parse_product_data(html_text)
 
     lines = html_text.split('\n')
     new_lines = []
     current_company = None
-    badge_count = 0
+    panel_count = 0
 
     for line in lines:
         # Track which company tab we're in
@@ -1357,13 +1426,10 @@ def enhance_company_product_rows(html_text, patlytics, techson):
                     current_company = co
                     break
 
-        # Process lines with product rows (may have many products on one line)
+        # Process lines with product rows
         if current_company and 'class="prod-link"' in line and '<td class="prod-indent">' in line:
-            # Split the line into individual <tr> segments and process each
-            # Pattern: each product is in a <tr>...<a class="prod-link">NAME</a>...
-            #          <span class="r r-xxx">RATING</span></td>...</tr>
             def replace_product_row(m):
-                nonlocal badge_count
+                nonlocal panel_count
                 tr_html = m.group(0)
                 prod_m = re.search(r'class="prod-link">([^<]+)</a>', tr_html)
                 if not prod_m:
@@ -1372,24 +1438,100 @@ def enhance_company_product_rows(html_text, patlytics, techson):
 
                 pl_data = find_patlytics_for_product(prod_name, current_company, pl_lookup)
                 has_techson = (current_company, prod_name) in ts_product_map
+                pdata = prod_data.get((current_company, prod_name), {})
+                desc = pdata.get('desc', '')
+                prod_url = pdata.get('url', '')
+                patent_areas = pdata.get('patent_areas', [])
 
+                # -- Add badges to the row --
                 badges = ''
                 if pl_data:
                     score_pct = f'{pl_data["best_score"]:.0%}'
                     badges += f' <span class="pi-pat-score" title="Patlytics infringement score">{score_pct}</span>'
                 if has_techson:
                     badges += ' <span class="pi-ts-badge" title="Techson also identifies this product">Techson</span>'
-
                 if badges:
-                    badge_count += 1
                     tr_html = re.sub(
                         r'(<span class="r r-[^"]*">[^<]*</span>)(</td>)',
                         rf'\1{badges}\2',
-                        tr_html,
-                        count=1)
-                return tr_html
+                        tr_html, count=1)
 
-            # Match each <tr> that contains a prod-link (skip div-header-row trs)
+                # -- Make row clickable --
+                safe_id = re.sub(r'[^a-zA-Z0-9]', '_', f'{current_company}_{prod_name}')
+                tr_html = tr_html.replace(
+                    '<tr><td class="prod-indent">',
+                    f'<tr class="cpd-row" onclick="toggleCpd(\'{safe_id}\')">'
+                    f'<td class="prod-indent">')
+
+                # -- Build detail panel --
+                detail = []
+                detail.append(f'<tr class="cpd-detail-row" id="cpd-{safe_id}" style="display:none">')
+                detail.append(f'<td colspan="3"><div class="cpd-panel">')
+
+                # Grid layout: left = overview, right = evidence
+                detail.append(f'<div class="cpd-grid">')
+
+                # Left column: Overview
+                detail.append(f'<div class="cpd-col">')
+                if desc:
+                    detail.append(f'<p class="cpd-desc">{esc(desc)}</p>')
+                if prod_url:
+                    detail.append(f'<a href="{esc(prod_url)}" target="_blank" class="cpd-ext-link" onclick="event.stopPropagation()">View product page &#x2197;</a>')
+
+                # Patent areas
+                if patent_areas:
+                    detail.append(f'<div class="cpd-section"><div class="cpd-label">Patent Areas</div><div class="cpd-tags">')
+                    for slug, label in patent_areas:
+                        detail.append(f'<a href="#" class="cpd-tag" onclick="goPatCat(this);return false" data-pat-cat="{slug}">{esc(label)}</a>')
+                    detail.append(f'</div></div>')
+
+                # Techson assessment
+                if has_techson:
+                    detail.append(f'<div class="cpd-section"><div class="cpd-label">Techson Assessment</div>'
+                                  f'<div class="cpd-techson-note"><span class="src-badge src-techson" style="font-size:7px">T</span> '
+                                  f'Independently identified by Techson as a relevant infringement target for this portfolio.</div></div>')
+
+                # Contacts placeholder (populated by JS from const PC)
+                detail.append(f'<div class="cpd-section cpd-contacts-section">'
+                              f'<div class="cpd-label">Contacts at {esc(current_company)}</div>'
+                              f'<div class="cpd-contacts" id="cpd-ct-{safe_id}" '
+                              f'data-product="{esc(prod_name)}"></div></div>')
+
+                detail.append(f'</div>')  # cpd-col left
+
+                # Right column: Infringement Evidence
+                detail.append(f'<div class="cpd-col">')
+                if pl_data and pl_data.get('entries'):
+                    detail.append(f'<div class="cpd-section"><div class="cpd-label">'
+                                  f'<span class="src-badge src-patlytics" style="font-size:7px">P</span> '
+                                  f'Infringement Evidence</div>')
+                    detail.append(f'<table class="cpd-ev-tbl"><thead><tr>'
+                                  f'<th>Patent</th><th>Score</th><th>Docs</th></tr></thead><tbody>')
+                    for entry in pl_data['entries']:
+                        sc = entry['score']
+                        cls = 'score-cr' if sc >= 0.8 else 'score-hi' if sc >= 0.5 else 'score-md' if sc >= 0.3 else 'score-lo'
+                        pid_display = entry['patent_id']
+                        # Extract category for display
+                        cat = entry.get('category', '')
+                        cat_short = cat[:30] + '...' if len(cat) > 30 else cat
+                        detail.append(
+                            f'<tr><td><a href="#" class="cpd-pat-link" onclick="goToPatent(\'{entry["patent_id"]}\');event.stopPropagation();return false" '
+                            f'title="{esc(cat)}">{pid_display}</a></td>'
+                            f'<td class="{cls}">{sc:.0%}</td>'
+                            f'<td>{entry.get("docs", 0)}</td></tr>')
+                    detail.append(f'</tbody></table></div>')
+                elif not pl_data:
+                    detail.append(f'<div class="cpd-section"><div class="cpd-label">Infringement Evidence</div>'
+                                  f'<p class="cpd-no-data">No Patlytics scoring available for this product.</p></div>')
+
+                detail.append(f'</div>')  # cpd-col right
+
+                detail.append(f'</div>')  # cpd-grid
+                detail.append(f'</div></td></tr>')  # cpd-panel
+                panel_count += 1
+
+                return tr_html + ''.join(detail)
+
             line = re.sub(
                 r'<tr><td class="prod-indent">.*?</tr>',
                 replace_product_row,
@@ -1397,7 +1539,7 @@ def enhance_company_product_rows(html_text, patlytics, techson):
 
         new_lines.append(line)
 
-    print(f"  {badge_count} product rows badged in company tabs")
+    print(f"  {panel_count} expandable product panels in company tabs")
     return '\n'.join(new_lines)
 
 
@@ -1542,6 +1684,64 @@ def enhance_company_tabs(html_text, patlytics, techson):
 # ──────────────────────────────────────────────
 NEW_JS = """
 // === LITIGATION DASHBOARD JS ===
+
+// --- Company tab expandable product panels ---
+function toggleCpd(id) {
+  var row = document.getElementById('cpd-' + id);
+  if (!row) return;
+  var isOpen = row.style.display !== 'none';
+  // Close all other open panels in this table
+  var table = row.closest('table');
+  if (table) {
+    table.querySelectorAll('.cpd-detail-row').forEach(function(r) {
+      r.style.display = 'none';
+      var prev = r.previousElementSibling;
+      if (prev) prev.classList.remove('cpd-active');
+    });
+  }
+  if (!isOpen) {
+    row.style.display = '';
+    var prev = row.previousElementSibling;
+    if (prev) prev.classList.add('cpd-active');
+    // Populate contacts on first open
+    var ctDiv = row.querySelector('.cpd-contacts');
+    if (ctDiv && !ctDiv.dataset.loaded && typeof PC !== 'undefined') {
+      ctDiv.dataset.loaded = '1';
+      var prodName = ctDiv.dataset.product;
+      var contacts = PC[prodName];
+      if (contacts && contacts.length > 0) {
+        var html = '';
+        // Sort: most_relevant first, then probable, then possible
+        var tierOrder = {'most_relevant':0,'probable':1,'possible':2};
+        contacts.sort(function(a,b) {
+          return (tierOrder[a.tier]||3) - (tierOrder[b.tier]||3);
+        });
+        var shown = contacts.slice(0, 12);
+        shown.forEach(function(c) {
+          var tierLabel = c.tier === 'most_relevant' ? 'Most Relevant' :
+                          c.tier === 'probable' ? 'Probable' : 'Possible';
+          var nameHtml = c.linkedin ?
+            '<a href="' + c.linkedin + '" target="_blank" onclick="event.stopPropagation()">' + c.name + '</a>' :
+            c.name;
+          html += '<div class="cpd-ct-item">' +
+            '<span class="cpd-ct-name">' + nameHtml + '</span>' +
+            '<span class="cpd-ct-pos" title="' + (c.position||'').replace(/"/g,'&quot;') + '">' + (c.position||'') + '</span>' +
+            '<span class="cpd-ct-meta">' +
+            '<span class="cpd-ct-tier">' + tierLabel + '</span>' +
+            '<span class="cpd-ct-sen">' + (c.seniority||'') + '</span>' +
+            '</span></div>';
+        });
+        if (contacts.length > 12) {
+          html += '<div class="cpd-ct-empty">+ ' + (contacts.length - 12) + ' more contacts</div>';
+        }
+        ctDiv.innerHTML = html;
+      } else {
+        ctDiv.innerHTML = '<div class="cpd-ct-empty">No contacts mapped to this product yet.</div>';
+      }
+    }
+  }
+}
+
 function togglePatDetail(patId) {
   var el = document.getElementById('pd-' + patId);
   if (!el) return;
