@@ -1541,7 +1541,7 @@ def main():
     # 1. Update title
     html_text = html_text.replace(
         '<title>UltronAI \u2014 Patent Portfolio Dashboard</title>',
-        '<title>UltronAI \u2014 Litigation Dashboard</title>')
+        '<title>UltronAI \u2014 Patent Intelligence Dashboard</title>')
 
     # Remove 'active' class from patents page (litigation page will be default)
     html_text = html_text.replace(
@@ -1551,7 +1551,7 @@ def main():
     # Update sidebar subtitle
     html_text = html_text.replace(
         '<p>Patent Portfolio Dashboard</p>',
-        '<p>Litigation Dashboard</p>')
+        '<p>Patent Intelligence Dashboard</p>')
 
     # Remove 'active' from the patents nav item (litigation will be default)
     html_text = html_text.replace(
