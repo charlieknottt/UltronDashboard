@@ -609,7 +609,12 @@ NEW_CSS = """
 .lit-card{background:var(--c);border:1px solid var(--b);border-radius:4px;box-shadow:var(--sh);overflow:hidden;transition:box-shadow .15s}
 .lit-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
 .lit-head{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none}
-.lit-head .co-mono{width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;border-radius:4px;flex-shrink:0;font-family:-apple-system,sans-serif}
+/* Override base co-mono to use rounded square everywhere */
+.co-mono{border-radius:4px!important}
+.nav-item .co-mono{vertical-align:middle;margin-right:4px;border-radius:3px!important}
+h2 .co-mono{vertical-align:middle;margin-right:6px;border-radius:5px!important}
+.net-co .co-mono{vertical-align:middle;margin-right:3px;border-radius:2px!important}
+.lit-head .co-mono{width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;border-radius:4px!important;flex-shrink:0;font-family:-apple-system,sans-serif}
 .lit-head h3{font-size:15px;font-weight:700;flex:1;margin:0}
 .lit-verdict{font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;text-transform:uppercase;letter-spacing:.3px;font-family:-apple-system,sans-serif}
 .lv-high{background:rgba(192,57,43,.1);color:var(--cr)}.lv-moderate{background:rgba(214,137,16,.1);color:var(--hi)}.lv-low{background:rgba(139,145,154,.08);color:var(--t3)}
@@ -637,7 +642,8 @@ NEW_CSS = """
 .ext-targets{margin-top:28px}
 .ext-targets h3{font-size:16px;margin-bottom:8px}
 .ext-tbl{width:100%;border-collapse:collapse;font-size:12px;font-family:-apple-system,sans-serif}
-.ext-tbl th{text-align:left;padding:6px 10px;color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--b)}
+.ext-tbl thead{position:sticky;top:0;z-index:2}
+.ext-tbl th{text-align:left;padding:6px 10px;color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--b);background:var(--c)}
 .ext-tbl td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.04)}
 .ext-tbl tr:hover{background:rgba(26,82,118,.02)}
 
@@ -809,6 +815,15 @@ COMPANY_LETTER = {
     'Microsoft': 'Ms', 'NVIDIA': 'N', 'Samsung': 'Sa', 'Tesla': 'T',
     'OpenAI': 'O', 'Qualcomm': 'Q', 'SoftBank/ARM': 'S', 'xAI': 'x',
 }
+
+def co_icon(company, size=16):
+    """Return HTML for a co-mono icon span at the given size."""
+    color = COMPANY_COLORS.get(company, '#666')
+    letter = COMPANY_LETTER.get(company, company[0])
+    fs = max(8, size - 7)
+    return (f'<span class="co-mono" style="background:{color};width:{size}px;height:{size}px;'
+            f'font-size:{fs}px;line-height:{size}px">{letter}</span>')
+
 
 def build_litigation_page(patlytics, techson):
     """Build HTML for the Litigation Targets landing page."""
@@ -1320,6 +1335,114 @@ def enhance_product_cards(html_text, patlytics, techson):
 
 
 # ──────────────────────────────────────────────
+# Enhance company tab product rows
+# ──────────────────────────────────────────────
+def enhance_company_product_rows(html_text, patlytics, techson):
+    """Add Patlytics score and Techson badge to product rows in company tabs.
+    Multiple products can be on a single line, so we use a regex callback
+    that processes each product individually."""
+    pl_lookup = build_product_patlytics_lookup(patlytics)
+    ts_product_map = build_techson_product_set(techson)
+
+    lines = html_text.split('\n')
+    new_lines = []
+    current_company = None
+    badge_count = 0
+
+    for line in lines:
+        # Track which company tab we're in
+        co_match = re.search(r'id="page-co-([^"]+)"', line)
+        if co_match:
+            slug = co_match.group(1)
+            for co in TARGET_12:
+                if co.replace('/', '-') == slug or co == slug:
+                    current_company = co
+                    break
+
+        # Process lines with product rows (may have many products on one line)
+        if current_company and 'class="prod-link"' in line and '<td class="prod-indent">' in line:
+            # Split the line into individual <tr> segments and process each
+            # Pattern: each product is in a <tr>...<a class="prod-link">NAME</a>...
+            #          <span class="r r-xxx">RATING</span></td>...</tr>
+            def replace_product_row(m):
+                nonlocal badge_count
+                tr_html = m.group(0)
+                prod_m = re.search(r'class="prod-link">([^<]+)</a>', tr_html)
+                if not prod_m:
+                    return tr_html
+                prod_name = html_mod.unescape(prod_m.group(1))
+
+                pl_data = find_patlytics_for_product(prod_name, current_company, pl_lookup)
+                has_techson = (current_company, prod_name) in ts_product_map
+
+                badges = ''
+                if pl_data:
+                    score_pct = f'{pl_data["best_score"]:.0%}'
+                    badges += f' <span class="pi-pat-score" title="Patlytics infringement score">{score_pct}</span>'
+                if has_techson:
+                    badges += ' <span class="pi-ts-badge" title="Techson also identifies this product">Techson</span>'
+
+                if badges:
+                    badge_count += 1
+                    tr_html = re.sub(
+                        r'(<span class="r r-[^"]*">[^<]*</span>)(</td>)',
+                        rf'\1{badges}\2',
+                        tr_html,
+                        count=1)
+                return tr_html
+
+            # Match each <tr> that contains a prod-link (skip div-header-row trs)
+            line = re.sub(
+                r'<tr><td class="prod-indent">.*?</tr>',
+                replace_product_row,
+                line)
+
+        new_lines.append(line)
+
+    print(f"  {badge_count} product rows badged in company tabs")
+    return '\n'.join(new_lines)
+
+
+# ──────────────────────────────────────────────
+# Standardize company logos across the dashboard
+# ──────────────────────────────────────────────
+def standardize_company_logos(html_text):
+    """Add co-mono icons to sidebar nav items, company tab headers,
+    and network table company cells."""
+    count = 0
+
+    # 1. Sidebar nav items — add icon before company name
+    #    Pattern: <div class="nav-item" data-page="co-Google">Google <span class="b">164</span></div>
+    for co in TARGET_12:
+        slug = co.replace('/', '-')
+        icon = co_icon(co, 16)
+        # nav item
+        old_nav = f'data-page="co-{slug}">{co} '
+        new_nav = f'data-page="co-{slug}">{icon}{co} '
+        if old_nav in html_text:
+            html_text = html_text.replace(old_nav, new_nav)
+            count += 1
+        # Company tab header: <h2>Google</h2>
+        icon_lg = co_icon(co, 24)
+        old_h2 = f'<h2>{co}</h2>'
+        new_h2 = f'<h2>{icon_lg} {co}</h2>'
+        if old_h2 in html_text:
+            html_text = html_text.replace(old_h2, new_h2)
+            count += 1
+
+    # 2. Network table cells: <td class="net-co">COMPANY</td>
+    for co in TARGET_12:
+        icon_sm = co_icon(co, 14)
+        old_td = f'<td class="net-co">{co}</td>'
+        new_td = f'<td class="net-co">{icon_sm} {co}</td>'
+        html_text = html_text.replace(old_td, new_td)
+        # Count replacements (many rows per company)
+
+    print(f"  {count} nav/header logos added, network table logos injected")
+    return html_text
+
+
+# ──────────────────────────────────────────────
 # Enhance company tabs
 # ──────────────────────────────────────────────
 def enhance_company_tabs(html_text, patlytics, techson):
@@ -1634,6 +1757,10 @@ def main():
         '<input class="search-input pi-search"',
         f'{sort_buttons}<input class="search-input pi-search"')
 
+    # 7c. Enhance company tab product rows with Patlytics/Techson badges
+    print("Enhancing company tab product rows...")
+    html_text = enhance_company_product_rows(html_text, patlytics, techson)
+
     # 8. Enhance company tabs
     print("Enhancing company tabs...")
     html_text = enhance_company_tabs(html_text, patlytics, techson)
@@ -1658,6 +1785,10 @@ def main():
     html_text = html_text.replace(
         '<div class="nav-grp ng-prod">',
         f'{nav_lit}<div class="nav-grp ng-prod">')
+
+    # 10b. Standardize company logos across the dashboard
+    print("Standardizing company logos...")
+    html_text = standardize_company_logos(html_text)
 
     # 11. Update JS P array — prepend 'litigation' so page-litigation is found
     html_text = html_text.replace(
