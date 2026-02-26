@@ -740,7 +740,7 @@ def build_category_overview():
              'Click any category below to jump to its patents.</p>')
 
     h.append('<table class="cat-overview-tbl"><thead><tr>')
-    h.append('<th>Category</th><th style="text-align:center">Patents</th><th>Description</th><th>Patlytics Mapping</th>')
+    h.append('<th>Category</th><th style="text-align:center">Patents</th><th>Description</th>')
     h.append('</tr></thead><tbody>')
 
     for cat_name, info in CATEGORY_PATLYTICS_MAP.items():
@@ -764,7 +764,6 @@ def build_category_overview():
                  f'style="color:var(--a);text-decoration:none">{esc(cat_name)}</a></td>')
         h.append(f'<td class="cat-count">{info["count"]}</td>')
         h.append(f'<td>{esc(info["desc"])}</td>')
-        h.append(f'<td class="cat-pl"><span class="src-badge src-patlytics" style="font-size:7px">P</span> {esc(info["patlytics"])}</td>')
         h.append(f'</tr>')
 
     h.append('</tbody></table>')
