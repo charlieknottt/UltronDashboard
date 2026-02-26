@@ -1436,9 +1436,36 @@ def standardize_company_logos(html_text):
         old_td = f'<td class="net-co">{co}</td>'
         new_td = f'<td class="net-co">{icon_sm} {co}</td>'
         html_text = html_text.replace(old_td, new_td)
-        # Count replacements (many rows per company)
 
-    print(f"  {count} nav/header logos added, network table logos injected")
+    # 3. Normalize existing co-mono icons from base dashboard (product filter buttons)
+    #    The base dashboard uses different colors/letters for some companies.
+    replacements = [
+        # Apple: ● gray → Ap dark gray
+        ('background:#a2aaad;width:16px;height:16px;font-size:9px;line-height:16px">●</span>',
+         'background:#555555;width:16px;height:16px;font-size:9px;line-height:16px">Ap</span>'),
+        # Meta: blue variant
+        ('background:#0668e1;', 'background:#1877F2;'),
+        # Microsoft: M → Ms
+        ('background:#00a4ef;width:16px;height:16px;font-size:9px;line-height:16px">M</span>',
+         'background:#00A4EF;width:16px;height:16px;font-size:9px;line-height:16px">Ms</span>'),
+        # Samsung: S → Sa
+        ('background:#1428a0;width:16px;height:16px;font-size:9px;line-height:16px">S</span>',
+         'background:#1428A0;width:16px;height:16px;font-size:9px;line-height:16px">Sa</span>'),
+        # OpenAI: green → purple
+        ('background:#10a37f;', 'background:#412991;'),
+        # xAI: gray → black
+        ('background:#8b8fa3;', 'background:#000000;'),
+        # SoftBank/ARM: A → S
+        ('background:#ed1c24;width:16px;height:16px;font-size:9px;line-height:16px">A</span>',
+         'background:#ED1C24;width:16px;height:16px;font-size:9px;line-height:16px">S</span>'),
+    ]
+    norm_count = 0
+    for old_str, new_str in replacements:
+        if old_str in html_text:
+            html_text = html_text.replace(old_str, new_str)
+            norm_count += 1
+
+    print(f"  {count} nav/header logos added, network table logos injected, {norm_count} old icons normalized")
     return html_text
 
 
